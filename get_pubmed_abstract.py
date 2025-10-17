@@ -8,8 +8,8 @@ from Bio import Entrez
 # User Config
 # ---------------------------
 Entrez.email = "mandecent.gupta@egmail.com"  # Replace with your email
-search_term = "cancer genomics"         # Your PubMed search term
-retmax = 5000                              # Number of articles to fetch
+search_term = "cancer AND (drug OR therapy OR treatment)"         # Your PubMed search term
+retmax = 500000                              # Number of articles to fetch
 
 # External HDD paths
 BASE_PATH = "/Volumes/Seagate2TB/PubMed"
