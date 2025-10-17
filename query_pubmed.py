@@ -3,6 +3,7 @@ import json
 import faiss
 import numpy as np
 import ollama
+from drug_target_kg import add_structured_data_to_kg  # Import your KG module
 
 # ---------------------------
 # Paths
@@ -26,19 +27,35 @@ with open(ID_MAP_FILE, "r") as f:
 MODEL_NAME = "deepseek-r1:latest"
 
 # ---------------------------
-# Function to get embeddings for query
+# Functions
 # ---------------------------
 def get_query_embedding(query):
     result = ollama.embeddings(model=MODEL_NAME, prompt=query)
     return np.array(result["embedding"], dtype="float32").reshape(1, -1)
 
-# ---------------------------
-# Function to fetch abstract text
-# ---------------------------
 def get_abstract_text(pmid):
     with open(os.path.join(ABSTRACT_FOLDER, f"{pmid}.json"), "r", encoding="utf-8") as f:
         data = json.load(f)
         return data.get("abstract", "")
+
+def extract_structured_drug_info(drug_name, abstract):
+    """
+    Uses DeepSeek to extract structured drug-target info from abstract.
+    Returns a list of target dictionaries.
+    """
+    prompt = f"Extract structured drug-target-cancer information from this abstract for drug '{drug_name}':\n{abstract}\nFormat as JSON with 'target', 'cancer', and 'mechanism'."
+    response = ollama.chat(model=MODEL_NAME, messages=[{"role":"user","content":prompt}])
+    raw_text = response.message if hasattr(response, "message") else str(response)
+    
+    # Attempt to parse JSON from DeepSeek output
+    try:
+        targets = json.loads(raw_text)
+        if isinstance(targets, dict):
+            targets = [targets]  # wrap single dict as list
+    except Exception:
+        # fallback: return empty
+        targets = []
+    return targets
 
 # ---------------------------
 # User input
@@ -57,30 +74,24 @@ top_pmids = [pmid_list[i] for i in I[0]]
 print(f"Found {len(top_pmids)} relevant abstracts for '{drug_name}'")
 
 # ---------------------------
-# Extract drug-target info using DeepSeek
+# Extract and structure drug-target info
 # ---------------------------
-results = []
+structured_data = []
 
 for pmid in top_pmids:
     abstract = get_abstract_text(pmid)
-    prompt = f"Extract drug-target information from this abstract for drug '{drug_name}':\n{abstract}"
+    targets = extract_structured_drug_info(drug_name, abstract)
     
-    response = ollama.chat(model=MODEL_NAME, messages=[{"role":"user","content":prompt}])
-    # DeepSeek returns 'message' field
-    summary = response.message if hasattr(response, "message") else str(response)
-    
-    results.append({
-        "pmid": pmid,
-        "abstract": abstract,
+    structured_data.append({
         "drug": drug_name,
-        "drug_target_summary": summary
+        "targets": targets,
+        "pmid": pmid,
+        "abstract": abstract
     })
 
 # ---------------------------
-# Display results
+# Add structured data to Neo4j KG
 # ---------------------------
-for r in results:
-    print("\n---")
-    print(f"PMID: {r['pmid']}")
-    print(f"Drug: {r['drug']}")
-    print(f"Drug-Target Summary: {r['drug_target_summary']}")
+add_structured_data_to_kg(structured_data)
+
+print("Data successfully added to the knowledge graph!")
