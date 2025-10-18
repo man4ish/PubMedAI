@@ -1,0 +1,26 @@
+# Core
+numpy>=1.25
+pandas>=2.1
+
+# FAISS for vector search
+faiss-cpu>=1.7.4
+
+# Transformers & embeddings
+transformers>=4.35.0
+sentence-transformers>=2.2.2
+
+# Ollama (for your current LLM integration)
+ollama>=0.1.0
+
+# Knowledge Graph & Visualization
+networkx>=3.1
+matplotlib>=3.8.0
+pyvis>=3.6.2
+
+# JSON & utilities
+requests>=2.32.0
+tqdm>=4.66.1
+
+# Optional NLP / NER (if you plan to add later)
+spacy>=3.6.0
+scispacy>=0.6.3

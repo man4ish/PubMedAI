@@ -1,118 +1,114 @@
-# PubMedAI
 
-**PubMedAI** is a hybrid Retrieval-Augmented Generation (RAG) pipeline for biomedical research. It enables you to:
+# PubMedAI — RAG-Enabled Drug Knowledge Graph
 
-- Download and store PubMed abstracts locally.
-- Build a semantic search index using **DeepSeek embeddings**.
-- Query your local index offline for fast retrieval.
-- Optionally query PubMed online for new publications.
-- Generate concise answers using the DeepSeek LLM based on both local and online sources.
-
----
-
-## Table of Contents
-
-1. [Project Structure](#project-structure)  
-2. [Requirements](#requirements)  
-3. [Quickstart](#quickstart)  
-4. [Step 1: Download PubMed Abstracts](#step-1-download-pubmed-abstracts)  
-5. [Step 2: Build FAISS Index](#step-2-build-faiss-index)  
-6. [Step 3: Query Abstracts (RAG Style)](#step-3-query-abstracts-rag-style)  
-7. [Notes](#notes)  
-8. [Future Enhancements](#future-enhancements)  
-
----
+This project builds a Retrieval-Augmented Generation (RAG) pipeline over PubMed abstracts to explore drug–target–disease relationships and visualize them as a knowledge graph.
 
 ## Project Structure
 
 ```
 PubMedAI/
-├── get_pubmed_abstract.py # Download PubMed abstracts
-├── index_abstracts.py # Generate embeddings & build FAISS index
-├── query_pubmed.py # Query local + online data using RAG
-├── README.md # Project documentation
-└── External HDD/
-└── PubMed/
-├── Abstracts/ # JSON abstracts downloaded from PubMed
-└── Index/ # FAISS index + PMID mapping
+├── config.py                      # Global configuration (paths, constants, etc.)
+├── README.md                      # Project documentation
+│
+├── data_pipeline/                 # Data ingestion & indexing
+│   ├── get_pubmed_abstract.py     # Fetches abstracts from PubMed
+│   └── index_abstracts.py         # Builds FAISS or text index for retrieval
+│
+├── retriever/                     # Embedding & retrieval logic
+│   ├── embedding_utils.py         # Embedding generator (e.g., using sentence-transformers)
+│   └── faiss_retriever.py         # Handles vector search with FAISS
+│
+├── generator/                     # LLM or RAG-based text generation
+│   └── rag_generator.py           # Generates answers using retrieved documents
+│
+├── kg/                            # Knowledge graph utilities
+│   └── drug_target_kg.py          # Builds or visualizes a drug-target knowledge graph
+│
+└── scripts/                       # Entry-point scripts for CLI use
+    ├── query_pubmed.py            # Main interactive query script
+    └── visualize_drug_kg.py       # Visualizes drug-target graph
 ```
 
+## Installation
 
----
+1. Clone the repository
+   ```bash
+   git clone https://github.com/<your-username>/PubMedAI.git
+   cd PubMedAI
+   ```
 
-## Requirements
+2. Create and activate environment
+   ```bash
+   conda create -n pubmedai python=3.10 -y
+   conda activate pubmedai
+   ```
 
-- Python 3.10+  
-- Install required packages:
+3. Install dependencies
+   ```bash
+   pip install -r requirements.txt
+   ```
 
+## Workflow Overview
+
+### Step 1 — Download PubMed Abstracts
+Fetch abstracts related to biomedical keywords (e.g., drugs, diseases, or proteins).
 ```bash
-pip install biopython faiss-cpu sentence-transformers ollama numpy
+python data_pipeline/get_pubmed_abstract.py
+```
+Output: Saves `.txt` files under `data/Abstracts/`.
+
+### Step 2 — Create FAISS Index
+Convert abstracts into embeddings and index them using FAISS for fast semantic search.
+```bash
+python data_pipeline/index_abstracts.py
+```
+Output: Stores vector index (`pubmed_index.faiss`) and metadata (`pmid_map.json`) in `data/Index/`.
+
+### Step 3 — Query the Knowledge Base
+Query by drug name, mechanism, or disease — uses semantic retrieval (FAISS) to find related abstracts.
+```bash
+python scripts/query_pubmed.py
+```
+Example:
+```text
+Enter drug name or question: tyrosine kinase inhibitor
+```
+Output:
+- Lists relevant abstracts
+- Updates `data/knowledge_graph.json`
+
+### Step 4 — Visualize the Knowledge Graph
+Build and visualize a graph of drug–target–disease relationships.
+```bash
+python scripts/visualize_drug_kg.py
+```
+Output: Interactive graph (nodes = drugs, targets, diseases).
+
+## How It Works (RAG Architecture)
+
+| Component                | Description                                                                  |
+|-------------------------|------------------------------------------------------------------------------|
+| Retriever               | FAISS vector store indexes PubMed embeddings for efficient semantic search   |
+| Augmenter               | Retrieved abstracts enrich context for querying and relationship extraction  |
+| Generator (optional)    | Can be extended to use an LLM (e.g., GPT) for natural-language summarization |
+| Knowledge Graph         | Represents entities (drugs, genes, diseases) and their inferred connections  |
+
+## Example Flow
+```
+Input: "tyrosine kinase inhibitor"
+↓
+FAISS → retrieves 10 top abstracts
+↓
+NER → extracts entities (Drug, Target, Cancer)
+↓
+Graph → adds new nodes/edges
+↓
+Visualization → interactive network
 ```
 
-## Ollama installed with DeepSeek model:
-
+## Future Enhancements
+- Integrate OpenAI or Llama for summarization (RAG generation stage)
+- Add biomedical NER (e.g., SciSpacy or BERN2)
+- Build web dashboard for interactive KG exploration
+- Add temporal trends and citation analytics
 ```
-ollama pull deepseek-r1:latest
-```
-
-External HDD mounted (example path: /Volumes/Seagate2TB)
-
-## Quickstart
-
-### Download PubMed abstracts.
-
-- Build the FAISS index using DeepSeek embeddings.
-
-### Query abstracts using the hybrid RAG pipeline.
-
-- Step 1: Download PubMed Abstracts
-
-Edit get_pubmed_abstract.py with your query term and run:
-
-```
-python get_pubmed_abstract.py
-```
-
-This will save abstracts in JSON format under:
-
-/Volumes/Seagate2TB/PubMed/Abstracts/
-
-- Step 2: Build FAISS Index
-
-After downloading abstracts:
-
-```
-python index_abstracts.py
-```
-
-This script will:
-
-Generate embeddings for all abstracts using DeepSeek.
-
-## Build a FAISS index for fast semantic search.
-
-Save the index and a mapping of vector → PMID to:
-
-```
-/Volumes/Seagate2TB/PubMed/Index/
-```
-
-- Step 3: Query Abstracts (RAG Style)
-
-Run the query script:
-
-```
-python query_pubmed.py
-```
-
-### Enter your biomedical query at the prompt.
-
-The script retrieves the most relevant abstracts from your local FAISS index.
-
-Optionally, it can also fetch new abstracts from PubMed online.
-
-Generates a concise answer using the DeepSeek LLM.
-
-Example Query:
-
-Enter your PubMed query: AI applications in cancer genomics
